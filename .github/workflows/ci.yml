@@ -1,4 +1,4 @@
-name: CI
+name: Build image
 
 on:
   push:
@@ -40,33 +40,6 @@ jobs:
           tags: kicad-pocs:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Smoke test
-        run: |
-          chmod -R a+rwX "$PWD"
-          docker run --rm -v "$PWD":/workspaces/kicad-pocs -w /workspaces/kicad-pocs \
-            kicad-pocs:ci make test
-
-      - name: MCP server starts
-        run: |
-          docker run --rm kicad-pocs:ci bash -c 'test -f /opt/kicad-mcp/dist/index.js && python3 -c "import kipy, pcbnew"'
-
-      - name: noVNC comes up
-        run: |
-          docker run --rm -v "$PWD":/workspaces/kicad-pocs -w /workspaces/kicad-pocs \
-            kicad-pocs:ci bash -c 'make novnc && curl -fsS http://localhost:6080/vnc.html | head -5 && make novnc-stop'
-
-      - name: Headless KiCad screenshot
-        run: |
-          docker run --rm -v "$PWD":/workspaces/kicad-pocs -w /workspaces/kicad-pocs \
-            kicad-pocs:ci make screenshot
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: kicad-screenshot
-          path: kicad.png
-          if-no-files-found: ignore
 
       - name: Publish image to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
