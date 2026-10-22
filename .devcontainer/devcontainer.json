@@ -1,0 +1,21 @@
+{
+  "name": "kicad-pocs",
+  "build": {
+    "dockerfile": "../Dockerfile"
+  },
+  "remoteUser": "dev",
+  "forwardPorts": [6080],
+  "portsAttributes": {
+    "6080": { "label": "noVNC", "onAutoForward": "notify" }
+  },
+  "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder}",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "python.defaultInterpreterPath": "/opt/venv/bin/python"
+      },
+      "extensions": ["ms-python.python"]
+    }
+  }
+}
