@@ -4,8 +4,8 @@ Devcontainer for KiCad proofs of concept: KiCad 9 (PPA), `kicad-cli`, SWIG `pcbn
 IPC API client `kipy`, a KiCad MCP server, and a browser desktop via noVNC.
 
 ## Use
-Open in VS Code / Codespaces ("Reopen in Container"), or `docker build -t kicad-pocs .`.
-CI publishes `ghcr.io/thedeepestspace/kicad-pocs-dev:latest` from master.
+Open in VS Code / Codespaces ("Reopen in Container"), or `docker build --target dev -t kicad-pocs .`.
+CI publishes `ghcr.io/thedeepestspace/kicad-pocs-ci:latest` and `...-dev:latest` from master (targets `ci` and `dev` of the Dockerfile).
 
 | Command | What |
 |---|---|

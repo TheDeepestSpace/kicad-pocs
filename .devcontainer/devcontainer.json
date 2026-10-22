@@ -1,7 +1,8 @@
 {
   "name": "kicad-pocs",
   "build": {
-    "dockerfile": "../Dockerfile"
+    "dockerfile": "../Dockerfile",
+    "target": "dev"
   },
   "remoteUser": "dev",
   "forwardPorts": [6080],

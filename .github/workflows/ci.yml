@@ -1,4 +1,4 @@
-name: Build image
+name: CI
 
 on:
   push:
@@ -8,41 +8,70 @@ on:
 
 permissions:
   contents: read
-  packages: write
+  packages: read
 
 jobs:
-  devcontainer:
+  # Same-repo PRs build a PR-specific image (tag pr-<number>) so Dockerfile
+  # changes are tested immediately; everything else uses :latest.
+  ci_image:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      image-name: ghcr.io/thedeepestspace/kicad-pocs-ci
+      dockerfile: ./Dockerfile
+      target: ci
+    secrets: inherit
+
+  select_ci_image:
+    needs: ci_image
+    if: always() # don't skip if ci_image is skipped
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    outputs:
+      image-tag: ${{ steps.image.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Image name
-        id: img
+      - id: image
+        env:
+          BUILT_TAG: ${{ needs.ci_image.outputs.image-primary-tag }}
+          BUILD_RESULT: ${{ needs.ci_image.result }}
         run: |
-          echo "name=ghcr.io/${GITHUB_REPOSITORY,,}-dev" >> "$GITHUB_OUTPUT"
+          if [ "$BUILD_RESULT" != "success" ] && [ "$BUILD_RESULT" != "skipped" ]; then
+            echo "::error::ci_image $BUILD_RESULT"
+            exit 1
+          fi
+          echo "tag=${BUILT_TAG:-ghcr.io/thedeepestspace/kicad-pocs-ci:latest}" >> "$GITHUB_OUTPUT"
 
-      - name: Build image
-        uses: docker/build-push-action@v6
+  test:
+    needs: select_ci_image
+    if: ${{ !cancelled() && needs.select_ci_image.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: ${{ needs.select_ci_image.outputs.image-tag }}
+      options: --user root
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Smoke test
+        run: make test
+
+      - name: MCP server and python bindings
+        run: test -f /opt/kicad-mcp/dist/index.js && python3 -c "import kipy, pcbnew"
+
+      - name: noVNC comes up
+        run: make novnc && curl -fsS http://localhost:6080/vnc.html | head -5 && make novnc-stop
+
+      - name: Headless KiCad screenshot
+        run: make screenshot
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
         with:
-          context: .
-          load: true
-          tags: kicad-pocs:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Publish image to GHCR
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        run: |
-          docker tag kicad-pocs:ci "${{ steps.img.outputs.name }}:latest"
-          docker push "${{ steps.img.outputs.name }}:latest"
+          name: kicad-screenshot
+          path: kicad.png
+          if-no-files-found: ignore
