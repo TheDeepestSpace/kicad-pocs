@@ -49,3 +49,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends zsh vim jq man 
     && chsh -s /bin/zsh dev
 
 USER dev
+# oh-my-zsh for dev (zsh-in-docker), git plugin
+RUN sh -c "$(curl -fsSL https://github.com/deluan/zsh-in-docker/releases/download/v1.2.1/zsh-in-docker.sh)" -- \
+    -p git
